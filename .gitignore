@@ -1,4 +1,14 @@
-/data/
+/data/bike_drop
+/data/bike_drop copy
+/data/bike_pick
+/data/nyc_bike
+/data/taxi_drop
+/data/taxi_drop copy
+/data/h5data
+/data/taxi_pick
+
+
 
 /__pycache__/
 
+/logs/

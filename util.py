@@ -23,14 +23,18 @@ def load_pickle(pickle_file):
 
 class DataLoader(object):
     def __init__(self, xs, ys, batch_size, pad_with_last_sample=True):
-        self.batch_size = batch_size
+        self.batch_size = batch_size  # 64
         self.current_ind = 0
+        """
+        This operation adds extra samples (rows) to the bottom of your data array, 
+        usually to make the number of samples a multiple of your batch size for training.
+        """
         if pad_with_last_sample:
             num_padding = (batch_size - (len(xs) % batch_size)) % batch_size
-            x_padding = np.repeat(xs[-1:], num_padding, axis=0)
-            y_padding = np.repeat(ys[-1:], num_padding, axis=0)
-            xs = np.concatenate([xs, x_padding], axis=0)
-            ys = np.concatenate([ys, y_padding], axis=0)
+            x_padding = np.repeat(xs[-1:], num_padding, axis=0)  # (18num_padding, 12, 250, 3)
+            y_padding = np.repeat(ys[-1:], num_padding, axis=0)  # (18num_padding, 12, 250, 1)
+            xs = np.concatenate([xs, x_padding], axis=0)  # (2624, 12, 250, 3)
+            ys = np.concatenate([ys, y_padding], axis=0)  # (2624, 12, 250, 1)
         self.size = len(xs)
         self.num_batch = int(self.size // self.batch_size)
         self.xs = xs
@@ -73,20 +77,24 @@ def load_dataset(dataset_dir, batch_size, valid_batch_size=None, test_batch_size
     data = {}
     for category in ["train", "val", "test"]:
         cat_data = np.load(os.path.join(dataset_dir, category + ".npz"))
-        data["x_" + category] = cat_data["x"]
-        data["y_" + category] = cat_data["y"]
+        data["x_" + category] = cat_data["x"]  # (2606, 12, 250, 3) 2606个样本，时间，节点，通道/特征数量
+        data["y_" + category] = cat_data["y"]  # train:2606 val:870 test:869
     scaler = StandardScaler(
         mean=data["x_train"][..., 0].mean(), std=data["x_train"][..., 0].std()
     )
     # Data format
-    for category in ["train", "val", "test"]:
+    for category in ["train", "val", "test"]: # 把第一个特征标准化 [0,1]
         data["x_" + category][..., 0] = scaler.transform(data["x_" + category][..., 0])
 
     print("Perform shuffle on the dataset")
-    random_train = torch.arange(int(data["x_train"].shape[0]))
-    random_train = torch.randperm(random_train.size(0))
-    data["x_train"] = data["x_train"][random_train, ...]
-    data["y_train"] = data["y_train"][random_train, ...]
+    random_train = torch.arange(int(data["x_train"].shape[0]))  # tensor([0,1,2, ..., 2603,2604,2605])
+    random_train = torch.randperm(random_train.size(0))  # 打乱
+    """
+    This line shuffles the order of your samples (the first dimension of x_train) according to random_train.
+    All other dimensions (timesteps, locations, features) remain unchanged.
+    """
+    data["x_train"] = data["x_train"][random_train, ...]  # (2606, 12, 250, 3)
+    data["y_train"] = data["y_train"][random_train, ...]  # (2606, 12, 250, 1)
 
     random_val = torch.arange(int(data["x_val"].shape[0]))
     random_val = torch.randperm(random_val.size(0))
@@ -105,8 +113,8 @@ def load_dataset(dataset_dir, batch_size, valid_batch_size=None, test_batch_size
 
     return data
 
-def MAE_torch(pred, true, mask_value=None):
-    if mask_value != None:
+def MAE_torch(pred, true, mask_value=None):  # The mask is used to filter out (ignore) values in your tensors where the target (true) is less than or equal to mask_value, so the MAE is only calculated over "real" or "valid" data points.
+    if mask_value != None:  # To ignore invalid or missing values in your data (for example, if missing values are represented as -999).
         mask = torch.gt(true, mask_value)
         pred = torch.masked_select(pred, mask)
         true = torch.masked_select(true, mask)
@@ -143,3 +151,5 @@ def metric(pred, real):
     wmape = WMAPE_torch(pred, real, 0).item()
     rmse = RMSE_torch(pred, real, 0).item()
     return mae, mape, rmse, wmape
+
+

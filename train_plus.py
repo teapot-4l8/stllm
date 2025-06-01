@@ -12,7 +12,7 @@ from ranger21 import Ranger
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:180'
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--device", type=str, default="cuda:7", help="")
+parser.add_argument("--device", type=str, default="cuda:0", help="")
 parser.add_argument("--data", type=str, default="bike_drop", help="data path")
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--lrate", type=float, default=1e-3, help="learning rate")
@@ -22,7 +22,7 @@ parser.add_argument("--num_nodes", type=int, default=250, help="number of nodes"
 parser.add_argument("--input_len", type=int, default=12, help="input_len")
 parser.add_argument("--output_len", type=int, default=12, help="out_len")
 parser.add_argument("--llm_layer", type=int, default=1, help="llm layer")
-parser.add_argument("--U", type=int, default=1, help="unforzen layer")
+parser.add_argument("--U", type=int, default=1, help="unforzen layer")  # 在训练过程中允许其权重更新的层
 parser.add_argument("--print_every", type=int, default=50, help="")
 parser.add_argument(
     "--wdecay", type=float, default=0.0001, help="weight decay rate"
@@ -30,7 +30,7 @@ parser.add_argument(
 parser.add_argument(
     "--save",
     type=str,
-    default="./logs/" + str(time.strftime("%Y-%m-%d-%H:%M:%S")) + "-",
+    default="./logs/" + str(time.strftime("%Y-%m-%d-%H-%M-%S")) + "-",
     help="save path"
     )
 parser.add_argument(
@@ -61,29 +61,29 @@ class trainer:
             device, adj_mx, input_dim, num_nodes, input_len, output_len, llm_layer, U
         )
         self.model.to(device)
-        
+        # 初始化模型的优化器
         self.optimizer = Ranger(self.model.parameters(), lr=lrate, weight_decay=wdecay)
         # self.optimizer = optim.Adam(self.model.parameters(), lr=lrate, weight_decay=wdecay)
         
         self.loss = util.MAE_torch
         self.scaler = scaler
-        self.clip = 5
-        print("The number of parameters: {}".format(self.model.param_num()))
-        print("The number of trainable parameters: {}".format(self.model.count_trainable_params()))
+        self.clip = 5  # 用于梯度裁剪（Gradient Clipping），防止梯度爆炸
+        print("The number of parameters: {}".format(self.model.param_num()))  # The number of parameters: 47209740 模型的总参数数量
+        print("The number of trainable parameters: {}".format(self.model.count_trainable_params()))  # The number of trainable parameters: 3101964
         print(self.model)
 
-    def train(self, input, real_val):
+    def train(self, input, real_val):  #  metrics = engine.train(trainx, trainy[:, 0, :, :])  real_val torch.Size([64, 250, 12])
         self.model.train()
-        self.optimizer.zero_grad()
-        output = self.model(input)
-        output = output.transpose(1, 3)
-        real = torch.unsqueeze(real_val, dim=1)
-        predict = self.scaler.inverse_transform(output)
+        self.optimizer.zero_grad()  # Clears the gradients of all model parameters.
+        output = self.model(input)  # output = self.model.forward(input)
+        output = output.transpose(1, 3)  # torch.Size([64, 1, 250, 12])  
+        real = torch.unsqueeze(real_val, dim=1)  # torch.Size([64, 1, 250, 12])
+        predict = self.scaler.inverse_transform(output)  #torch.Size([64, 1, 250, 12]) This line takes your model's predictions (which are in a normalized or standardized range) and converts them back to the real-world scale
         loss = self.loss(predict, real, 0.0)
-        loss.backward()
+        loss.backward()  # This line tells PyTorch to “work backwards from the loss and figure out how each parameter contributed to it”—so it can be improved!
         if self.clip is not None:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
-        self.optimizer.step()
+        self.optimizer.step()  # This line actually changes your model’s parameters, making it learn from the data!
         mape = util.MAPE_torch(predict, real, 0.0).item()
         rmse = util.RMSE_torch(predict, real, 0.0).item()
         wmape = util.WMAPE_torch(predict, real, 0.0).item()
@@ -130,7 +130,11 @@ def main():
     elif args.data == "taxi_pick":
         args.data = "data//" + args.data
         args.num_nodes = 266    
-    
+    # test
+    # elif args.data == "nyc_bike":
+    #     args.data = "data//" + args.data
+    #     args.num_nodes = 266  
+
     device = torch.device(args.device)
     dataloader = util.load_dataset(
         args.data, args.batch_size, args.batch_size, args.batch_size
@@ -140,7 +144,7 @@ def main():
     loss = 9999999
     test_log = 999999
     epochs_since_best_mae = 0
-    path = args.save + data + "/"
+    path = args.save + data + "/"  # './logs/2025-05-31-22-29-31-bike_drop/'
 
     his_loss = []
     val_time = []
@@ -176,11 +180,12 @@ def main():
         t1 = time.time()
         # dataloader['train_loader'].shuffle()
         for iter, (x, y) in enumerate(dataloader["train_loader"].get_iterator()):
-            trainx = torch.Tensor(x).to(device)  # 64 12 250 1
-            trainx = trainx.transpose(1, 3)
+            trainx = torch.Tensor(x).to(device)  # 64 12 250 1  torch.Size([64, 12, 250, 3])  [batch_size, seq_len, num_nodes, input_dim]
+            # swaps the 2nd (1) and 4th (3) axes.
+            trainx = trainx.transpose(1, 3)  # Many deep learning models, especially convolutional neural networks (CNNs) and spatio-temporal models, expect data in the format: (batch, channels, height, width)
             trainy = torch.Tensor(y).to(device)
-            trainy = trainy.transpose(1, 3)
-            metrics = engine.train(trainx, trainy[:, 0, :, :])
+            trainy = trainy.transpose(1, 3)   # torch.Size([64, 1, 250, 12])   trainy[:, 0, :, :]  torch.Size([64, 250, 12])
+            metrics = engine.train(trainx, trainy[:, 0, :, :])  # 0 (second position): selects only the first feature (out of 3)
             train_loss.append(metrics[0])
             train_mape.append(metrics[1])
             train_rmse.append(metrics[2])
