@@ -4,7 +4,6 @@ import os
 import pandas as pd
 import h5py
 
-import os
 
 def generate_graph_seq2seq_io_data(
         df, x_offsets, y_offsets, add_time_in_day=False, add_day_in_week=False, scaler=None
@@ -26,7 +25,7 @@ def generate_graph_seq2seq_io_data(
     data_list = [df]
 
     if add_time_in_day:
-        df.index = pd.to_datetime(df.index,format = '%Y-%m-%d %H:%M:%S')
+        df.index = pd.to_datetime(df.index,format = '%Y-%m-%d %H:%M:%S')  # 明确指定时间字符串的格式为 年-月-日 小时:分钟:秒
         time_ind = (df.index.values - df.index.values.astype("datetime64[D]")) / np.timedelta64(1, "D")
         time_in_day = np.tile(time_ind, [1, num_nodes, 1]).transpose((2, 1, 0))
         data_list.append(time_in_day)
@@ -36,7 +35,7 @@ def generate_graph_seq2seq_io_data(
         data_list.append(day_in_week)
 
     data = np.concatenate(data_list, axis=-1)  # (4368, 250, 2) add false
-    print(data.shape)
+    print(data.shape)  # (4368, 250, 2)
 
     x, y = [], []
     # t is the index of the last observation.
@@ -53,7 +52,7 @@ def generate_graph_seq2seq_io_data(
 
 
 def generate_train_val_test(args):
-    h5_path = os.path.join('h5data',args.h5_name+'.h5')
+    # h5_path = os.path.join('h5data',args.h5_name+'.h5')
     # df = h5py.File(h5_path, 'r')
     df = h5py.File(r"D:\_________________________PythonProject\ST-LLM-Plus-main\data\h5data\nyc-bike.h5", 'r')
     rawdata = []
@@ -61,7 +60,6 @@ def generate_train_val_test(args):
         key = args.h5_name[-4:] + "_" + feature
         data = np.array(df[key])  # (4368, 250)  Number of Timesteps 4,368
         rawdata.append(data)
-    
     rawdata = np.stack(rawdata, -1)  # (4368, 250, 2)
 
     x_offsets = np.sort(
@@ -122,7 +120,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--h5_name",
         type=str,
-        default="nyc-bike",
+        default="nyc_bike",
         help="Raw data",
     )
     parser.add_argument(

@@ -77,10 +77,10 @@ def load_dataset(dataset_dir, batch_size, valid_batch_size=None, test_batch_size
     data = {}
     for category in ["train", "val", "test"]:
         cat_data = np.load(os.path.join(dataset_dir, category + ".npz"))
-        data["x_" + category] = cat_data["x"]  # (2606, 12, 250, 3) 2606个样本，时间，节点，通道/特征数量
-        data["y_" + category] = cat_data["y"]  # train:2606 val:870 test:869
+        data["x_" + category] = cat_data["x"]  # (2606, 12, 250, 3) 2606个样本，时间，节点，通道/特征数量 (流量值, day, week) day[0,1] week[0]  np.max(data['x_train'][..., 2]) to access the third feature (index 2 in the fourth dimension) and find its maximum value
+        data["y_" + category] = cat_data["y"]  # train:2606 val:870 test:869  train(2606, 12, 250, 1)  val:(870, 12, 250, 1)  
     scaler = StandardScaler(
-        mean=data["x_train"][..., 0].mean(), std=data["x_train"][..., 0].std()
+        mean=data["x_train"][..., 0].mean(), std=data["x_train"][..., 0].std()  # 提取训练集所有样本、所有时间步、所有站点的 第0个特征
     )
     # Data format
     for category in ["train", "val", "test"]: # 把第一个特征标准化 [0,1]

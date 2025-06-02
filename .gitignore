@@ -7,6 +7,12 @@
 /data/h5data
 /data/taxi_pick
 
+/csv_data
+
+/data/evdata/test.npz
+/data/evdata/train.npz
+/data/evdata/val.npz
+
 
 
 /__pycache__/

@@ -40,7 +40,7 @@ parser.add_argument(
     help="quit if no improvement after this many iterations"
     )
 args = parser.parse_args()
-adj_mx = load_graph_data(f"data/{args.data}/adj_mx.pkl") # nyc
+adj_mx = load_graph_data(f"data/{args.data}/adj_mx.pkl") # nyc  (250, 250)
 
 class trainer:
     def __init__(

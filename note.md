@@ -114,3 +114,9 @@ ST_LLM(
   )
 )
 ```
+
+## about data set
+
+The adjacency matrix A is a core data structure representing the traffic network's connections, loaded from data/adj_mx.pkl.
+
+
