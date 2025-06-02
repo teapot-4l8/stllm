@@ -13,7 +13,7 @@ os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:180'
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--device", type=str, default="cuda:0", help="")
-parser.add_argument("--data", type=str, default="bike_drop", help="data path")
+parser.add_argument("--data", type=str, default="evdata", help="data path")
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--lrate", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--epochs", type=int, default=300, help="500")
@@ -40,7 +40,7 @@ parser.add_argument(
     help="quit if no improvement after this many iterations"
     )
 args = parser.parse_args()
-adj_mx = load_graph_data(f"data/{args.data}/adj_mx.pkl") # nyc  (250, 250)
+adj_mx = load_graph_data(f"data/{args.data}/adj_mx.pkl") # nyc  (250, 250)   evdata  (275, 275)
 
 class trainer:
     def __init__(
@@ -131,9 +131,9 @@ def main():
         args.data = "data//" + args.data
         args.num_nodes = 266    
     # test
-    # elif args.data == "nyc_bike":
-    #     args.data = "data//" + args.data
-    #     args.num_nodes = 266  
+    elif args.data == "evdata":
+        args.data = "data//" + args.data
+        args.num_nodes = 275  
 
     device = torch.device(args.device)
     dataloader = util.load_dataset(

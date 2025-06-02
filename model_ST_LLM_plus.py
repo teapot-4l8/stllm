@@ -10,12 +10,14 @@ from peft import LoraConfig, get_peft_model
 class TemporalEmbedding(nn.Module):
     def __init__(self, time, features): 
         super(TemporalEmbedding, self).__init__()
-        # This line creates a learnable embedding matrix for each time slot in a day, so the model can learn to represent time-of-day information in a flexible, trainable way.
+        # This line creates a learnable embedding matrix for each time slot in a day, 
+        # so the model can learn to represent time-of-day information in a flexible, trainable way.
         self.time = time  # time：表示一天中的时间步数 features:每个时间步的嵌入是一个 256 维的向量
         self.time_day = nn.Parameter(torch.empty(time, features))  # Registers tensor as a parameter to be optimized
         nn.init.xavier_uniform_(self.time_day)
         # nn.Parameter(...): Tells PyTorch that this tensor should be tracked as a parameter of the model and updated during backpropagation.
-        self.time_week = nn.Parameter(torch.empty(7, features))  # This creates a learnable parameter (a tensor) called time_week that will be optimized during training 
+        # This creates a learnable parameter (a tensor) called time_week that will be optimized during training 
+        self.time_week = nn.Parameter(torch.empty(7, features))  
         nn.init.xavier_uniform_(self.time_week)  # 初始化 self.time_week 参数
 
     def forward(self, x):  # torch.Size([64, 12, 250, 3])
@@ -148,7 +150,8 @@ class PFA(nn.Module):
         else:
             past_length = past_key_values[0][0].size(-2)
         if position_ids is None:
-            position_ids = torch.arange(past_length, input_shape[-1] + past_length, dtype=torch.long, device=device)  # 生成一个从 past_length 开始、到 past_length + seq_len - 1 结束的连续整数序列
+            # 生成一个从 past_length 开始、到 past_length + seq_len - 1 结束的连续整数序列
+            position_ids = torch.arange(past_length, input_shape[-1] + past_length, dtype=torch.long, device=device) 
             position_ids = position_ids.unsqueeze(0)  # 将形状从 (seq_len,) 变为 (1, seq_len)，以便后续广播到整个批次
 
         if inputs_embeds is None:
@@ -185,7 +188,8 @@ class PFA(nn.Module):
                 all_self_attentions = all_self_attentions + (outputs[2],)
         
         hidden_states = self.gpt2.ln_f(hidden_states)  # Applies the final layer normalization (ln_f) from the GPT-2 model to hidden_states
-        hidden_states = hidden_states.view((-1,) + input_shape[1:] + (hidden_states.size(-1),))  # (-1,) means the first dimension (often batch size) is inferred automatically.
+        # (-1,) means the first dimension (often batch size) is inferred automatically.
+        hidden_states = hidden_states.view((-1,) + input_shape[1:] + (hidden_states.size(-1),))  
 
         if not return_dict:
             return tuple(
@@ -212,9 +216,10 @@ class PFA(nn.Module):
         num_heads =  self.gpt2.config.n_head  # 12
         adjacency_matrix = adjacency_matrix.unsqueeze(0).repeat(batch_size, 1, 1)  # torch.Size([64, 250, 250]) Now you have one adjacency matrix per sample in the batch.
         adjacency_matrix = adjacency_matrix.unsqueeze(1).repeat(1, num_heads, 1, 1)  # torch.Size([64, 12, 250, 250]) 
-        # The final result is a tensor where each batch and each attention head gets its own copy of the adjacency matrix, matching the expected input shape for multi-head attention layers.
+        # The final result is a tensor where each batch and each attention head gets its own copy of the adjacency matrix, 
+        # matching the expected input shape for multi-head attention layers.
         attention_mask = adjacency_matrix.to(self.device).float() #[64,12,250,250]
-        print(attention_mask.shape)  # torch.Size([64, 12, 250, 250])
+        # print(attention_mask.shape)  # torch.Size([64, 12, 250, 250])
 
         # Use GPT-2 with attention mask
         output = self.custom_forward(
@@ -254,6 +259,9 @@ class ST_LLM(nn.Module):
             time = 288 # 288 = 24 hours × 12 intervals/hour = 5 minutes per interval.
         elif num_nodes == 250 or num_nodes == 266:
             time = 48  # 48 = 24 hours × 2 intervals/hour = 30 minutes per interval.
+
+        elif num_nodes == 275:  # evdata
+            time = 24
 
         gpt_channel = 256  # 输出数据的通道数，即卷积层的目标特征维度
         to_gpt_channel = 768  # GPT-2 模型的标准隐藏层维度
@@ -302,15 +310,15 @@ class ST_LLM(nn.Module):
         input_data = data.permute(0,3,2,1) #[32, 2, 207, 12] torch.Size([64, 3, 250, 12])
         input_data = input_data.transpose(1, 2).contiguous() #[32, 207, 2, 12]  torch.Size([64, 250, 3, 12])
         input_data = (input_data.view(B, S, -1).transpose(1, 2).unsqueeze(-1))
-        print(input_data.shape) #[64, 36, 250, 1]  torch.Size([64, 36, 250, 1])
+        # print(input_data.shape) #[64, 36, 250, 1]  torch.Size([64, 36, 250, 1])
         input_data = self.start_conv(input_data)  # torch.Size([64, 256, 250, 1])
-        print(input_data.shape)  #[64, 36, 250, 1]
+        # print(input_data.shape)  #[64, 36, 250, 1]
         # HF = FConv (EP ||ES||ET ; θf )
         data_st = torch.cat([input_data] + [tem_emb] + node_emb, dim=1)
-        print(f"After cat: data_st shape: {data_st.shape}, type: {type(data_st)}")
+        # print(f"After cat: data_st shape: {data_st.shape}, type: {type(data_st)}")
 
         data_st = self.in_layer(data_st)  # torch.Size([64, 768, 250, 1])
-        print(f"After in_layer: data_st shape: {data_st.shape}, type: {type(data_st)}")
+        # print(f"After in_layer: data_st shape: {data_st.shape}, type: {type(data_st)}")
 
         data_st = Fuct.leaky_relu(data_st)  # torch.Size([64, 768, 250, 1])
         data_st = data_st.permute(0, 2, 1, 3).squeeze(-1)  # torch.Size([64, 250, 768])
@@ -318,10 +326,10 @@ class ST_LLM(nn.Module):
         outputs = self.gpt(data_st, self.adj_mx)  # torch.Size([64, 250, 768])
             
         outputs = outputs.permute(0, 2, 1).unsqueeze(-1)
-        print(outputs.shape) # torch.Size([64, 768, 250, 1]) 
+        # print(outputs.shape) # torch.Size([64, 768, 250, 1]) 
 
         # regression It applies a linear transformation (optionally with bias) to map from the model’s internal feature space to the desired output size.
         outputs = self.regression_layer(outputs)  
-        print(outputs.shape) #[64, 12, 250, 1]
+        # print(outputs.shape) #[64, 12, 250, 1]
         
         return outputs

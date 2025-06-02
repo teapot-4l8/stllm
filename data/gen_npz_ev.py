@@ -30,12 +30,11 @@ def generate_graph_seq2seq_io_data(
         time_in_day = np.tile(time_ind, [1, num_nodes, 1]).transpose((2, 1, 0))  # (4344, 275, 1)
         data_list.append(time_in_day)
     if add_day_in_week:
-        day_in_week = np.zeros(shape=(num_samples, num_nodes, 7))  # (4344, 275, 7)
-        day_in_week[np.arange(num_samples), :, df.index.dayofweek] = 1
+        day_in_week = np.tile(df.index.dayofweek.values[:, None, None], (1, num_nodes, 1))
         data_list.append(day_in_week)
 
-    data = np.concatenate(data_list, axis=-1)  # (4368, 250, 2) add false
-    print(data.shape)  # (4344, 275, 9)
+    data = np.concatenate(data_list, axis=-1) 
+    print(data.shape)  # (4344, 275, 3)
 
     x, y = [], []
     # t is the index of the last observation.
@@ -94,8 +93,9 @@ def generate_train_val_test(args):
     # test
     x_test, y_test = x[-num_test:], y[-num_test:]
     
-    save_folder =  os.path.join(args.h5_name)
-    os.mkdir(save_folder)
+    # save_folder =  os.path.join(args.h5_name)
+    save_folder = r'D:\_________________________PythonProject\ST-LLM-Plus-main\data\evdata'
+    # os.mkdir(save_folder)
     for cat in ["train", "val", "test"]:
         _x, _y = locals()["x_" + cat], locals()["y_" + cat]
         # train x:  () y: ()

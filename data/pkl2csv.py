@@ -8,13 +8,18 @@
 # df.to_csv(r'bike_drop/adj_mx.csv')
 
 import pandas as pd
+import pickle
 
-# 读取CSV文件
-df = pd.read_csv(r"data\evdata\adj_filter.csv")  # 可添加参数如encoding='utf-8', sep=','等
+# Adjust the path to your CSV and PKL files
+csv_path = r"data/evdata/adj_filter.csv"
+pkl_path = r"data/evdata/adj_mx.pkl"
 
-# 保存为PKL文件
-df.to_pickle("adj_mx.pkl")  # 默认使用最高效的protocol
+# Read CSV, tell pandas the first column is index
+df = pd.read_csv(csv_path, index_col=0)
 
-# 验证：重新加载PKL文件
-loaded_df = pd.read_pickle("adj_mx.pkl")
-print(loaded_df.head())
+# Get the numpy array (without index and header)
+adj_array = df.values
+
+# Save as pickle file
+with open(pkl_path, "wb") as f:
+    pickle.dump(adj_array, f)
