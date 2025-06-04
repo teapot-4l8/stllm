@@ -11,6 +11,10 @@ from model_ST_LLM_plus import ST_LLM
 from ranger21 import Ranger
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:180'
 
+"""
+python .\train_plus.py --data evdata
+"""
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--device", type=str, default="cuda:0", help="")
 parser.add_argument("--data", type=str, default="evdata", help="data path")

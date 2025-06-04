@@ -48,6 +48,14 @@ In this repository, .pkl files are used as containers for important precomputed 
             time = 48  # time interval=30 min
 ```
 
+多加一行
+
+```python
+        elif num_nodes == 275:  # evdata
+            time = 24
+```
+
+
 ```python
 self.in_layer = nn.Conv2d(gpt_channel*3, to_gpt_channel, kernel_size=(1, 1))
 ```
@@ -118,5 +126,36 @@ ST_LLM(
 ## about data set
 
 The adjacency matrix A is a core data structure representing the traffic network's connections, loaded from data/adj_mx.pkl.
+
+price = e_price + s_price
+
+1. 用/data/gen_h5.py 将csv文件保存为h5文件，默认携带索引
+
+2. 用/data/gen_npz_ev.py 将h5文件划分为train.npz val.npz test.npz数据集
+
+3. 用/data/csv2pkl.py 将csv文件转为pkl，用于adj_mx.pkl
+
+### `gen_npz_ev.py`
+
+occupancy的时间格式 `df.index = pd.to_datetime(df.index, format='%m/%d/%Y %H:%M') `
+
+price的时间格式 `%Y-%m-%d %H:%M:%S` 
+
+划分比例：`0.7:0.15:0.15`
+
+
+## train_plus.py
+
+windows下不能用`:`命名文件，改成`-`
+
+```python
+parser.add_argument(
+    "--save",
+    type=str,
+    default="./logs/" + str(time.strftime("%Y-%m-%d-%H-%M-%S")) + "-",
+    help="save path"
+    )
+```
+
 
 
