@@ -12,12 +12,12 @@ from ranger21 import Ranger
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:180'
 
 """
-python .\train_plus.py --data evdata
+python .\train_plus.py --data occupancy
 """
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--device", type=str, default="cuda:0", help="")
-parser.add_argument("--data", type=str, default="evdata", help="data path")
+parser.add_argument("--data", type=str, default="occupancy", help="data path")
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--lrate", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--epochs", type=int, default=300, help="500")
@@ -135,7 +135,7 @@ def main():
         args.data = "data//" + args.data
         args.num_nodes = 266    
     # test
-    elif args.data == "evdata":
+    else:
         args.data = "data//" + args.data
         args.num_nodes = 275  
 

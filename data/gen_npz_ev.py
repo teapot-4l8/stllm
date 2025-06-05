@@ -94,7 +94,7 @@ def generate_train_val_test(args):
     x_test, y_test = x[-num_test:], y[-num_test:]
     
     # save_folder =  os.path.join(args.h5_name)
-    save_folder = r'D:\_________________________PythonProject\ST-LLM-Plus-main\data\evdata'
+    save_folder = r'D:\_________________________PythonProject\ST-LLM-Plus-main\data\occupancy'
     # os.mkdir(save_folder)
     for cat in ["train", "val", "test"]:
         _x, _y = locals()["x_" + cat], locals()["y_" + cat]
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--h5_name",
         type=str,
-        default="nyc_bike",
+        default="occupancy",
         help="Raw data",
     )
     parser.add_argument(

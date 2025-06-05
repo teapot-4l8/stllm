@@ -145,6 +145,15 @@ def WMAPE_torch(pred, true, mask_value=None):
     loss = torch.sum(torch.abs(pred - true)) / torch.sum(torch.abs(true))
     return loss
 
+def R2_torch(pred, real):
+    # pred, real: torch tensors, shape [N, 1] or [N]
+    y_true = real.reshape(-1)
+    y_pred = pred.reshape(-1)
+    ss_res = ((y_true - y_pred) ** 2).sum()
+    ss_tot = ((y_true - y_true.mean()) ** 2).sum()
+    r2 = 1 - ss_res / ss_tot
+    return r2.item()
+
 def metric(pred, real):
     mae = MAE_torch(pred, real, 0).item()
     mape = MAPE_torch(pred, real,0).item()

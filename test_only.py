@@ -23,7 +23,7 @@ python .\train_plus.py --data evdata
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--device", type=str, default="cuda:0", help="")
-parser.add_argument("--data", type=str, default="evdata", help="data path")
+parser.add_argument("--data", type=str, default="occupancy", help="data path")
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--lrate", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--epochs", type=int, default=300, help="500")
@@ -132,7 +132,7 @@ def plot(pred, real, i, zone):
     plt.grid(True)
     plt.title(f'Zone {zone} Prediction vs Actual (Horizon {i+1})')
     plt.tight_layout()
-    # plt.savefig(f'{path}/occupancy_{i}_{zone}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'./csv_data/occupancy_{i+1}_{zone}.png', dpi=300, bbox_inches='tight')
     plt.show()
     plt.close()  # Close the figure to free memory and prevent legend stacking
 
@@ -142,7 +142,7 @@ def save_to_csv(pred, real, i, zone):
         "Actual Occupancy": real.ravel(),
         "Predicted Occupancy": pred.ravel(),
     })
-    df.to_csv(f"./csv_data/prelen{i}_zone_{zone}.csv", index=False)
+    df.to_csv(f"./csv_data/prelen{i+1}_zone_{zone}.csv", index=False)
 
 def main():
     seed_it(6666)
@@ -165,8 +165,8 @@ def main():
     test_result = []
     print(args)
 
-    if not os.path.exists(path):
-        os.makedirs(path)
+    # if not os.path.exists(path):
+    #     os.makedirs(path)
 
     engine = trainer(
         scaler,
@@ -182,11 +182,11 @@ def main():
         device
     )
 
-    model_path = r"D:\_________________________PythonProject\ST-LLM-Plus-main\logs\2025-06-04-11-45-43-evdata\best_model.pth"
+    model_path = r"D:\_________________________PythonProject\ST-LLM-Plus-main\logs\2025-06-04-18-16-07-occupancy\best_model.pth"
     engine.model.load_state_dict(torch.load(model_path))
     outputs = []
-    realy = torch.Tensor(dataloader["y_test"]).to(device)
-    realy = realy.transpose(1, 3)[:, 0, :, :]
+    realy = torch.Tensor(dataloader["y_test"]).to(device)  # torch.Size([651, 12, 275, 3])
+    realy = realy.transpose(1, 3)[:, 0, :, :]  # torch.Size([651, 275, 12])
 
     for iter, (x, y) in enumerate(dataloader["test_loader"].get_iterator()):
         testx = torch.Tensor(x).to(device)
@@ -195,8 +195,8 @@ def main():
             preds = engine.model(testx).transpose(1, 3)
         outputs.append(preds.squeeze())
 
-    yhat = torch.cat(outputs, dim=0)
-    yhat = yhat[: realy.size(0), ...]
+    yhat = torch.cat(outputs, dim=0)  # [704, 275, 12]
+    yhat = yhat[: realy.size(0), ...]  # [651, 275, 12]
 
     amae = []
     amape = []
@@ -205,24 +205,32 @@ def main():
 
     test_m = []
 
+    # 直接从excel导入真实值
+    # real_csv = pd.read_csv("")
+
+    # 保存真实值对比
+    df = pd.DataFrame(yhat[:, :, 0].cpu().numpy())
+    df.to_csv("./csv_data/all_real.csv")
     for i in range(args.output_len):
+        # i = 几 只用前几个小时来预测将来output_len小时
+        i = 5  # 这里是5，其实是将来6小时 i+1
         pred = scaler.inverse_transform(yhat[:, :, i])  # torch.Size([651, 275])
         real = realy[:, :, i]
-
+        
         # metrics = util.metric(pred, real)  # torch.Size([651, 275])
         # log = "Evaluate best model on test data for horizon {:d}, Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}, Test WMAPE: {:.4f}"
         # print(log.format(i + 1, metrics[0], metrics[2], metrics[1], metrics[3]))
 
         
-        zone = 41
-        pred_single_zone = pred[:, zone]
-        real_single_zone = real[:, zone] 
+        zone = 42
+        pred_single_zone = pred[:, zone:zone+1]
+        real_single_zone = real[:, zone:zone+1] 
         plot(pred_single_zone.cpu().numpy(), real_single_zone.cpu().numpy(), i, zone)
         metrics = util.metric(pred_single_zone, real_single_zone)
         log = "Evaluate best model on test data for horizon {:d}, Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}, Test WMAPE: {:.4f}"
         print(log.format(i + 1, metrics[0], metrics[2], metrics[1], metrics[3]))
 
-        save_to_csv(pred_single_zone, real_single_zone, i, zone)
+        save_to_csv(pred_single_zone.cpu().numpy(), real_single_zone.cpu().numpy(), i, zone)
 
         test_m = dict(
             test_loss=np.mean(metrics[0]),
@@ -238,7 +246,7 @@ def main():
         armse.append(metrics[2])
         awmape.append(metrics[3])
 
-        break # 只测试预测将来1h的
+        break 
 
     log = "On average over 12 horizons, Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}, Test WMAPE: {:.4f}"
     print(log.format(np.mean(amae), np.mean(armse), np.mean(amape), np.mean(awmape)))
