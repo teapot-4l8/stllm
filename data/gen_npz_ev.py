@@ -24,8 +24,13 @@ def generate_graph_seq2seq_io_data(
     num_samples, num_nodes = rawdata.shape[0], rawdata.shape[1]
     data_list = [rawdata]
 
+    # TODO 处理天 + 处理频率 先分解成低中高频率然后
+    # 
+
     if add_time_in_day:
-        df.index = pd.to_datetime(df.index, format='%m/%d/%Y %H:%M') 
+        # df.index = pd.to_datetime(df.index, format='%m/%d/%Y %H:%M')  # occupancy
+        df.index = pd.to_datetime(df.index, format='%Y-%m-%d %H:%M:%S')  # volume
+
         time_ind = (df.index.values - df.index.values.astype("datetime64[D]")) / np.timedelta64(1, "D")
         time_in_day = np.tile(time_ind, [1, num_nodes, 1]).transpose((2, 1, 0))  # (4344, 275, 1)
         data_list.append(time_in_day)
@@ -53,7 +58,7 @@ def generate_graph_seq2seq_io_data(
 def generate_train_val_test(args):
     # h5_path = os.path.join('h5data',args.h5_name+'.h5')
     # df = h5py.File(h5_path, 'r')
-    df = pd.read_hdf(r"D:\_________________________PythonProject\ST-LLM-Plus-main\data\h5data\occupancy.h5", key='data')
+    df = pd.read_hdf(r"D:\_________________________PythonProject\ST-LLM-Plus-main\data\h5data\volume.h5", key='data')
     rawdata = []
     data = np.array(df)
     rawdata.append(data)
@@ -77,10 +82,10 @@ def generate_train_val_test(args):
     # y: (num_samples, output_length, num_nodes, output_dim) 
     print("x shape: ", x.shape, ", y shape: ", y.shape)
 
-    # Write the data into npz file.
+    # Write the data into npz file.   8:1:1
     num_samples = x.shape[0]
-    num_test = 651
-    num_val = 651
+    num_test = int(num_samples*0.1)
+    num_val = num_test
     num_train = num_samples - num_test - num_val  
 
     # train
@@ -93,7 +98,7 @@ def generate_train_val_test(args):
     # test
     x_test, y_test = x[-num_test:], y[-num_test:]
     
-    # save_folder =  os.path.join(args.h5_name)
+    save_folder =  os.path.join(args.h5_name)
     save_folder = r'D:\_________________________PythonProject\ST-LLM-Plus-main\data\occupancy'
     # os.mkdir(save_folder)
     for cat in ["train", "val", "test"]:
@@ -126,7 +131,7 @@ if __name__ == "__main__":
         "--window", type=int, default=12, help="the length of history seq"
     )
     parser.add_argument(
-        "--horizon", type=int, default=12, help="the length of predict seq"
+        "--horizon", type=int, default=6, help="the length of predict seq"
     )
     
     args = parser.parse_args()
