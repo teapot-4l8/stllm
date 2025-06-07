@@ -12,7 +12,7 @@ from ranger21 import Ranger
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:180'
 
 """
-python .\train_plus.py --data occupancy
+python .\train_plus.py --data occupancy --output_len 6
 """
 
 parser = argparse.ArgumentParser()
@@ -24,7 +24,7 @@ parser.add_argument("--epochs", type=int, default=300, help="500")
 parser.add_argument("--input_dim", type=int, default=3, help="input_dim")
 parser.add_argument("--num_nodes", type=int, default=250, help="number of nodes")
 parser.add_argument("--input_len", type=int, default=12, help="input_len")
-parser.add_argument("--output_len", type=int, default=12, help="out_len")
+parser.add_argument("--output_len", type=int, default=6, help="out_len")
 parser.add_argument("--llm_layer", type=int, default=1, help="llm layer")
 parser.add_argument("--U", type=int, default=1, help="unforzen layer")  # 在训练过程中允许其权重更新的层
 parser.add_argument("--print_every", type=int, default=50, help="")
@@ -134,7 +134,7 @@ def main():
     elif args.data == "taxi_pick":
         args.data = "data//" + args.data
         args.num_nodes = 266    
-    # test
+    # ev
     else:
         args.data = "data//" + args.data
         args.num_nodes = 275  

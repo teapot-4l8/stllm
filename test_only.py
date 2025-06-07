@@ -18,19 +18,19 @@ import matplotlib.pyplot as plt
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:180'
 
 """
-python .\train_plus.py --data evdata
+python .\train_plus.py --data volume
 """
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--device", type=str, default="cuda:0", help="")
-parser.add_argument("--data", type=str, default="occupancy", help="data path")
+parser.add_argument("--data", type=str, default="volume", help="data path")
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--lrate", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--epochs", type=int, default=300, help="500")
 parser.add_argument("--input_dim", type=int, default=3, help="input_dim")
 parser.add_argument("--num_nodes", type=int, default=250, help="number of nodes")
 parser.add_argument("--input_len", type=int, default=12, help="input_len")
-parser.add_argument("--output_len", type=int, default=12, help="out_len")
+parser.add_argument("--output_len", type=int, default=6, help="out_len")
 parser.add_argument("--llm_layer", type=int, default=1, help="llm layer")
 parser.add_argument("--U", type=int, default=1, help="unforzen layer")  # 在训练过程中允许其权重更新的层
 parser.add_argument("--print_every", type=int, default=50, help="")
@@ -122,27 +122,27 @@ def seed_it(seed):
     torch.manual_seed(seed)
 
 
-def plot(pred, real, i, zone):
+def plot(pred, real, i, zone, name):
     plt.figure(figsize=(12, 6))  # Always start with a new figure
     plt.plot(real, label='Actual Values', color='blue', linewidth=2)
     plt.plot(pred, label='Predicted Values', color='red', linestyle='--', linewidth=2)
     plt.xlabel('Time Steps')
-    plt.ylabel('Occupancy Rate')
+    plt.ylabel(name)
     plt.legend()
     plt.grid(True)
     plt.title(f'Zone {zone} Prediction vs Actual (Horizon {i+1})')
     plt.tight_layout()
-    plt.savefig(f'./csv_data/occupancy_{i+1}_{zone}.png', dpi=300, bbox_inches='tight')
+    # plt.savefig(f'./csv_data/{name}_{i+1}_{zone}.png', dpi=300, bbox_inches='tight')
     plt.show()
     plt.close()  # Close the figure to free memory and prevent legend stacking
 
 
-def save_to_csv(pred, real, i, zone):
+def save_to_csv(pred, real, i, zone, name):
     df = pd.DataFrame({
-        "Actual Occupancy": real.ravel(),
-        "Predicted Occupancy": pred.ravel(),
+        "Actual": real.ravel(),
+        "Predicted": pred.ravel(),
     })
-    df.to_csv(f"./csv_data/prelen{i+1}_zone_{zone}.csv", index=False)
+    # df.to_csv(f"./csv_data/{name}_prelen{i+1}_zone_{zone}_811.csv", index=False)
 
 def main():
     seed_it(6666)
@@ -165,8 +165,6 @@ def main():
     test_result = []
     print(args)
 
-    # if not os.path.exists(path):
-    #     os.makedirs(path)
 
     engine = trainer(
         scaler,
@@ -182,21 +180,22 @@ def main():
         device
     )
 
-    model_path = r"D:\_________________________PythonProject\ST-LLM-Plus-main\logs\2025-06-04-18-16-07-occupancy\best_model.pth"
+    model_path = r"D:\_________________________PythonProject\ST-LLM-Plus-main\logs\2025-06-05-19-23-06-volume\best_model.pth"
     engine.model.load_state_dict(torch.load(model_path))
     outputs = []
-    realy = torch.Tensor(dataloader["y_test"]).to(device)  # torch.Size([651, 12, 275, 3])
-    realy = realy.transpose(1, 3)[:, 0, :, :]  # torch.Size([651, 275, 12])
+    realy = torch.Tensor(dataloader["y_test"]).to(device)  # torch.Size([432, 6, 275, 3])
+    realy = realy.transpose(1, 3)[:, 0, :, :]  # torch.Size([432, 275, 6])
 
     for iter, (x, y) in enumerate(dataloader["test_loader"].get_iterator()):
-        testx = torch.Tensor(x).to(device)
-        testx = testx.transpose(1, 3)
+        testx = torch.Tensor(x).to(device) 
+        testx = testx.transpose(1, 3)  # torch.Size([64, 3, 275, 12])
         with torch.no_grad():
-            preds = engine.model(testx).transpose(1, 3)
-        outputs.append(preds.squeeze())
+            preds = engine.model(testx).transpose(1, 3)  # torch.Size([64, 1, 275, 6])
+        outputs.append(preds.squeeze())  # torch.Size([64, 275, 6])
 
-    yhat = torch.cat(outputs, dim=0)  # [704, 275, 12]
-    yhat = yhat[: realy.size(0), ...]  # [651, 275, 12]
+    yhat = torch.cat(outputs, dim=0)  # torch.Size([448, 275, 6]) TODO 
+    yhat = yhat[: realy.size(0), ...]  # [651, 275, 6] TODO 651是什么
+    print(yhat.shape)
 
     amae = []
     amape = []
@@ -205,12 +204,10 @@ def main():
 
     test_m = []
 
-    # 直接从excel导入真实值
-    # real_csv = pd.read_csv("")
+    # 保存真实值对比 FIXME
+    # df = pd.DataFrame(yhat[:, :, 0].cpu().numpy())
+    # df.to_csv("./csv_data/all_real.csv")
 
-    # 保存真实值对比
-    df = pd.DataFrame(yhat[:, :, 0].cpu().numpy())
-    df.to_csv("./csv_data/all_real.csv")
     for i in range(args.output_len):
         # i = 几 只用前几个小时来预测将来output_len小时
         i = 5  # 这里是5，其实是将来6小时 i+1
@@ -221,16 +218,16 @@ def main():
         # log = "Evaluate best model on test data for horizon {:d}, Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}, Test WMAPE: {:.4f}"
         # print(log.format(i + 1, metrics[0], metrics[2], metrics[1], metrics[3]))
 
-        
+        # TODO 计算所有zone 选一个最好的 MAPE  然后用这个zone测chatev
         zone = 42
         pred_single_zone = pred[:, zone:zone+1]
         real_single_zone = real[:, zone:zone+1] 
-        plot(pred_single_zone.cpu().numpy(), real_single_zone.cpu().numpy(), i, zone)
+        plot(pred_single_zone.cpu().numpy(), real_single_zone.cpu().numpy(), i, zone, data)
         metrics = util.metric(pred_single_zone, real_single_zone)
         log = "Evaluate best model on test data for horizon {:d}, Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}, Test WMAPE: {:.4f}"
         print(log.format(i + 1, metrics[0], metrics[2], metrics[1], metrics[3]))
 
-        save_to_csv(pred_single_zone.cpu().numpy(), real_single_zone.cpu().numpy(), i, zone)
+        save_to_csv(pred_single_zone.cpu().numpy(), real_single_zone.cpu().numpy(), i, zone, data)
 
         test_m = dict(
             test_loss=np.mean(metrics[0]),
@@ -248,7 +245,7 @@ def main():
 
         break 
 
-    log = "On average over 12 horizons, Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}, Test WMAPE: {:.4f}"
+    log = "On average over 6 horizons, Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}, Test WMAPE: {:.4f}"
     print(log.format(np.mean(amae), np.mean(armse), np.mean(amape), np.mean(awmape)))
 
     test_m = dict(
@@ -261,7 +258,7 @@ def main():
     test_result.append(test_m)
 
     test_csv = pd.DataFrame(test_result)
-    # test_csv.round(8).to_csv(f"{path}/test.csv") 不要保存 会覆盖掉原先的记录
+    # test_csv.round(8).to_csv(f"{path}/zone42horizon6_811.csv") 
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()
